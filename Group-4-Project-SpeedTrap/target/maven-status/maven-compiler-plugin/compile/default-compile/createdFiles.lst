@@ -1,0 +1,5 @@
+model1\SpeedViolation.class
+system1\DatabaseManager.class
+com\mycompany\group\project\speedtrap\resources\JakartaEE10Resource.class
+com\mycompany\group\project\speedtrap\JakartaRestConfiguration.class
+controller\ViolationApiServlet.class
