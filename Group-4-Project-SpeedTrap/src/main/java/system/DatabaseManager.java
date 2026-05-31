@@ -3,7 +3,10 @@ package system;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 import model.TrafficTicket;
 
 public class DatabaseManager {
@@ -58,5 +61,38 @@ public class DatabaseManager {
             System.err.println("[-] LOI LUU DATABASE: " + e.getMessage());
         }
         return false;
+    }
+
+    public List<String> getAllTicketsForUI() {
+        List<String> jsonList = new ArrayList<>();
+
+        // Câu lệnh JOIN 3 bảng để lấy dữ liệu có ý nghĩa cho con người đọc
+        String sql = "SELECT t.TicketID, v.LicensePlate, v.FullName, s.LocationName, "
+                + "t.RecordedSpeed, t.ViolationTime, t.Status "
+                + "FROM Traffic_Ticket t "
+                + "JOIN Vehicle_Owner v ON t.LicensePlate = v.LicensePlate "
+                + "JOIN Speed_Station s ON t.StationID = s.StationID "
+                + "ORDER BY t.ViolationTime DESC"; // Sắp xếp cái mới nhất lên đầu
+
+        try (Connection conn = getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql); ResultSet rs = pstmt.executeQuery()) {
+
+            while (rs.next()) {
+                // Đóng gói thủ công thành chuỗi JSON (hoặc bạn có thể dùng thư viện Gson)
+                String jsonObj = String.format(
+                        "{\"ticketId\":%d, \"plate\":\"%s\", \"owner\":\"%s\", \"location\":\"%s\", \"speed\":%.1f, \"time\":\"%s\", \"status\":%d}",
+                        rs.getInt("TicketID"),
+                        rs.getString("LicensePlate"),
+                        rs.getString("FullName"),
+                        rs.getString("LocationName"),
+                        rs.getFloat("RecordedSpeed"),
+                        rs.getTimestamp("ViolationTime").toString(),
+                        rs.getInt("Status")
+                );
+                jsonList.add(jsonObj);
+            }
+        } catch (SQLException e) {
+            System.err.println("[-] Loi load danh sach: " + e.getMessage());
+        }
+        return jsonList;
     }
 }
