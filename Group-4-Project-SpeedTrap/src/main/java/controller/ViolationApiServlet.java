@@ -1,5 +1,6 @@
-package controller; // Nhớ đổi tên package nếu em tạo ở chỗ khác
+package controller; 
 
+import dao.WarningLogDAO;
 import java.io.IOException;
 import java.io.PrintWriter;
 import jakarta.servlet.ServletException;
@@ -7,10 +8,8 @@ import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import model1.SpeedViolation;
-import system1.DatabaseManager; // Import DatabaseManager của em vào
 
-// Đây chính là "địa chỉ nhà hàng" để mạch ESP32 tìm đến
+
 @WebServlet(name = "ViolationApiServlet", urlPatterns = {"/api/nhan-du-lieu"})
 public class ViolationApiServlet extends HttpServlet {
 
@@ -18,40 +17,46 @@ public class ViolationApiServlet extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         
-        // Cấu hình trả về định dạng chữ đơn giản (Text) cho ESP32 dễ đọc
+        // Cấu hình trả về text đơn giản cho ESP32 đọc
         response.setContentType("text/plain;charset=UTF-8");
         
         try (PrintWriter out = response.getWriter()) {
             
-            // 1. NHẬN DỮ LIỆU TỪ ESP32 GỬI LÊN (Khách gọi món)
-            // Lấy thông số từ URL (ví dụ: ?station=STATION_CE201665&speed=75.5)
-            String stationId = request.getParameter("station");
+            // 1. LẤY DỮ LIỆU TỪ ESP32
+            // Đã đổi tên tham số thành streetId cho khớp với DB mới
+            String streetIdStr = request.getParameter("streetId"); 
             String speedStr = request.getParameter("speed");
             
-            // 2. KIỂM TRA DỮ LIỆU CÓ HỢP LỆ KHÔNG
-            if (stationId != null && speedStr != null) {
-                // Đổi tốc độ từ chuỗi chữ (String) sang số thập phân (Float)
-                float speedValue = Float.parseFloat(speedStr);
+            if (streetIdStr != null && speedStr != null) {
+                // 2. CHUYỂN ĐỔI KIỂU DỮ LIỆU
+                int streetId = Integer.parseInt(streetIdStr);
                 
-                // 3. GỌI DATABASE MANAGER ĐỂ LƯU VÀO SQL (Mang vào bếp)
-                DatabaseManager dbManager = new DatabaseManager();
-                SpeedViolation sv = new SpeedViolation(stationId, speedValue);
-                dbManager.forwardDataDataBase(sv);
+                // Vì database thiết kế recorded_speed là INT, ta ép kiểu Float về Int (hoặc em có thể đổi DB thành Float tùy ý)
+                float speedFloat = Float.parseFloat(speedStr);
+                int speedValue = Math.round(speedFloat); 
                 
-                // 4. TRẢ LỜI CHO ESP32 BIẾT LÀ ĐÃ NHẬN THÀNH CÔNG (Mang hóa đơn ra)
-                out.println("SUCCESS"); 
+                // 3. GỌI DAO ĐỂ LƯU VÀO DATABASE
+                WarningLogDAO dao = new WarningLogDAO();
+                boolean isSuccess = dao.insertWarningLog(streetId, speedValue);
                 
-                // In ra màn hình Output của NetBeans để em dễ theo dõi
-                System.out.println(">>> [WIFI API] Nhan du lieu tu: " + stationId + " - Toc do: " + speedValue + " km/h");
+                // 4. PHẢN HỒI LẠI CHO ESP32
+                if (isSuccess) {
+                    out.println("SUCCESS"); 
+                    System.out.println(">>> [WIFI API] Nhan du lieu - Duong ID: " + streetId + " - Toc do: " + speedValue + " km/h");
+                } else {
+                    out.println("ERROR: Khong the luu vao DB");
+                    response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                }
                 
             } else {
-                // Báo lỗi nếu ESP32 gửi thiếu trạm hoặc tốc độ
-                out.println("ERROR: Thieu tham so station hoac speed");
+                out.println("ERROR: Thieu tham so streetId hoac speed");
                 response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             }
             
+        } catch (NumberFormatException e) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            response.getWriter().println("ERROR: Sai dinh dang so (NumberFormatException)");
         } catch (Exception e) {
-            // Báo lỗi nếu tốc độ gửi lên không phải là số hoặc lỗi database
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             response.getWriter().println("ERROR: " + e.getMessage());
         }

@@ -1,20 +1,21 @@
-﻿CREATE DATABASE [SpeedTrapDB];
+﻿CREATE DATABASE [SmartTrafficMonitor];
 GO
 
-USE [SpeedTrapDB];
+USE [SmartTrafficMonitor];
 GO
 
-CREATE TABLE [violation_records] (
-    [id] INT IDENTITY(1,1) PRIMARY KEY,
-    [station_id] VARCHAR(50) NOT NULL,
-    [recorded_speed] FLOAT NOT NULL,
-    [violation_timestamp] DATETIME DEFAULT GETDATE()
+
+-- Bảng quản lý tuyến đường
+CREATE TABLE Streets (
+    street_id INT PRIMARY KEY,
+    street_name NVARCHAR(255),
+    speed_limit INT
 );
-GO
- ALTER TABLE [violation_records]
-ALTER COLUMN [recorded_speed] DECIMAL(5,1) NOT NULL;
 
-GO
--- 5. Truy vấn kiểm tra dữ liệu
-SELECT * FROM [violation_records];
-GO
+-- Bảng lưu lịch sử cảnh báo (Đã bỏ cột license_plate)
+CREATE TABLE Warning_Logs (
+    log_id INT IDENTITY(1,1) PRIMARY KEY, -- ID tự tăng
+    street_id INT FOREIGN KEY REFERENCES Streets(street_id),
+    recorded_speed INT,
+    timestamp DATETIME -- Thời gian vi phạm
+);
