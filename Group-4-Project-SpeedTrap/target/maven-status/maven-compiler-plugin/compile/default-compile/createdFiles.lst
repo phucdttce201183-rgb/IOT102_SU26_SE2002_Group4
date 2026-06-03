@@ -5,5 +5,6 @@ controller\ViolationApiServlet.class
 controller\TrafficAnalyticsServlet.class
 dao\StreetDAO.class
 db\DBContext.class
+controller\SpeedCheckApiServlet.class
 dao\WarningLogDAO.class
 model\WarningLog.class
