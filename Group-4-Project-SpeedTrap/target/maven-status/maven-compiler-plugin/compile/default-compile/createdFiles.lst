@@ -1,5 +1,9 @@
-model1\SpeedViolation.class
-system1\DatabaseManager.class
+model\Street.class
 com\mycompany\group\project\speedtrap\resources\JakartaEE10Resource.class
 com\mycompany\group\project\speedtrap\JakartaRestConfiguration.class
 controller\ViolationApiServlet.class
+controller\TrafficAnalyticsServlet.class
+dao\StreetDAO.class
+db\DBContext.class
+dao\WarningLogDAO.class
+model\WarningLog.class
