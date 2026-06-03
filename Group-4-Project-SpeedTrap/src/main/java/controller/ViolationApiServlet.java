@@ -1,64 +1,79 @@
-package controller; 
+package controller;
 
 import dao.WarningLogDAO;
-import java.io.IOException;
-import java.io.PrintWriter;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.PrintWriter;
 
 @WebServlet(name = "ViolationApiServlet", urlPatterns = {"/api/nhan-du-lieu"})
 public class ViolationApiServlet extends HttpServlet {
 
     @Override
-    protected void doGet(HttpServletRequest request, HttpServletResponse response)
+    protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        
-        // Cấu hình trả về text đơn giản cho ESP32 đọc
+
+        // 1. Cấu hình trả về text đơn giản cho ESP đọc
         response.setContentType("text/plain;charset=UTF-8");
-        
-        try (PrintWriter out = response.getWriter()) {
-            
-            // 1. LẤY DỮ LIỆU TỪ ESP32
-            // Đã đổi tên tham số thành streetId cho khớp với DB mới
-            String streetIdStr = request.getParameter("streetId"); 
-            String speedStr = request.getParameter("speed");
-            
-            if (streetIdStr != null && speedStr != null) {
-                // 2. CHUYỂN ĐỔI KIỂU DỮ LIỆU
-                int streetId = Integer.parseInt(streetIdStr);
-                
-                // Vì database thiết kế recorded_speed là INT, ta ép kiểu Float về Int (hoặc em có thể đổi DB thành Float tùy ý)
-                float speedFloat = Float.parseFloat(speedStr);
-                int speedValue = Math.round(speedFloat); 
-                
-                // 3. GỌI DAO ĐỂ LƯU VÀO DATABASE
-                WarningLogDAO dao = new WarningLogDAO();
-                boolean isSuccess = dao.insertWarningLog(streetId, speedValue);
-                
-                // 4. PHẢN HỒI LẠI CHO ESP32
-                if (isSuccess) {
-                    out.println("SUCCESS"); 
-                    System.out.println(">>> [WIFI API] Nhan du lieu - Duong ID: " + streetId + " - Toc do: " + speedValue + " km/h");
-                } else {
-                    out.println("ERROR: Khong the luu vao DB");
-                    response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                }
-                
-            } else {
-                out.println("ERROR: Thieu tham so streetId hoac speed");
-                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        PrintWriter out = response.getWriter();
+
+        // 2. Đọc cục dữ liệu thô từ mạch ESP gửi lên (Ví dụ: "1|85.5")
+        StringBuilder payload = new StringBuilder();
+        try (BufferedReader reader = request.getReader()) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                payload.append(line);
             }
-            
-        } catch (NumberFormatException e) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            response.getWriter().println("ERROR: Sai dinh dang so (NumberFormatException)");
-        } catch (Exception e) {
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            response.getWriter().println("ERROR: " + e.getMessage());
         }
+
+        String data = payload.toString().trim();
+
+        // 3. Tách và xử lý dữ liệu an toàn
+        if (!data.isEmpty()) {
+            try {
+                String[] parts = data.split("\\|");
+
+                if (parts.length == 2) {
+                    int streetId = Integer.parseInt(parts[0].trim());
+
+                    // Chuyển Float sang Int cho khớp DB
+                    float speedFloat = Float.parseFloat(parts[1].trim());
+                    int speedValue = Math.round(speedFloat);
+
+                    // 4. GỌI DAO ĐỂ LƯU VÀO DATABASE
+                    WarningLogDAO dao = new WarningLogDAO();
+                    boolean isSuccess = dao.insertWarningLog(streetId, speedValue);
+
+                    // 5. PHẢN HỒI LẠI CHO ESP
+                    if (isSuccess) {
+                        out.print("SUCCESS");
+                        System.out.println(">>> [WIFI API] Nhan du lieu - Duong ID: " + streetId + " - Toc do: " + speedValue + " km/h");
+                        response.setStatus(HttpServletResponse.SC_OK);
+                    } else {
+                        out.print("DB_ERROR");
+                        response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    }
+                } else {
+                    out.print("INVALID_FORMAT");
+                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                }
+
+            } catch (NumberFormatException e) {
+                out.print("DATA_CORRUPTED");
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            } catch (Exception e) {
+                out.print("SERVER_ERROR");
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            }
+        } else {
+            out.print("EMPTY_PAYLOAD");
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        }
+
+        out.flush();
     }
 }

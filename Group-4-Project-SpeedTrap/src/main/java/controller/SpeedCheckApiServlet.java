@@ -37,8 +37,8 @@ public class SpeedCheckApiServlet extends HttpServlet {
             String[] parts = data.split("\\|");
             if (parts.length == 2) {
                 int streetId = Integer.parseInt(parts[0].trim());
-                int recordedSpeed = Integer.parseInt(parts[1].trim());
-
+                float speedFloat = Float.parseFloat(parts[1].trim());
+                int recordedSpeed = Math.round(speedFloat);
                 // 3. Gọi DAO để lấy giới hạn tốc độ của con đường này
                 StreetDAO streetDao = new StreetDAO();
                 int speedLimit = streetDao.getSpeedLimitByStreetId(streetId);
