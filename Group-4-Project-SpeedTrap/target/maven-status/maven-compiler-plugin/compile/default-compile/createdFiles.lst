@@ -1,9 +1,9 @@
 model\Street.class
 com\mycompany\group\project\speedtrap\resources\JakartaEE10Resource.class
 com\mycompany\group\project\speedtrap\JakartaRestConfiguration.class
-controller\ViolationApiServlet.class
 controller\TrafficAnalyticsServlet.class
 dao\StreetDAO.class
 db\DBContext.class
+controller\SpeedCheckApiServlet.class
 dao\WarningLogDAO.class
 model\WarningLog.class

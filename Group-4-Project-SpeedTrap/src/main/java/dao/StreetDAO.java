@@ -36,4 +36,24 @@ public class StreetDAO extends DBContext {
         }
         return list;
     }
+    /**
+     * Lấy tốc độ giới hạn của một tuyến đường dựa vào ID
+     */
+    public int getSpeedLimitByStreetId(int streetId) {
+        int speedLimit = 0;
+        String sql = "SELECT speed_limit FROM Streets WHERE street_id = ?";
+        
+        try {
+            java.sql.PreparedStatement st = conn.prepareStatement(sql);
+            st.setInt(1, streetId);
+            java.sql.ResultSet rs = st.executeQuery();
+            
+            if (rs.next()) {
+                speedLimit = rs.getInt("speed_limit");
+            }
+        } catch (Exception e) {
+            System.out.println("Lỗi getSpeedLimitByStreetId: " + e.getMessage());
+        }
+        return speedLimit; // Trả về tốc độ cho phép
+    }
 }
