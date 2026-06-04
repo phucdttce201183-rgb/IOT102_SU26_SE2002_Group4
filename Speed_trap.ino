@@ -6,25 +6,22 @@
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
-// --- 1. CẤU HÌNH WIFI VÀ SERVER (EM PHẢI SỬA PHẦN NÀY) ---
-const char* ssid = "T";          // Thay bằng tên WiFi
-const char* password = "0987654321";        // Thay bằng mật khẩu WiFi
-const char* serverIP = "10.180.198.98";         // Thay bằng IPv4 của Laptop em vừa tìm được
-const int serverPort = 8080;                   // Cổng của Tomcat/GlassFish (Thường là 8080)
-// Thay "TenProjectCuaEm" bằng đúng tên đường dẫn trên NetBeans
-const String apiPath = "/Group-4-Project-SpeedTrap/api/nhan-du-lieu"; 
+// --- 1. CẤU HÌNH WIFI VÀ SERVER ---
+const char* ssid = "T";
+const char* password = "0987654321";
+const char* serverIP = "10.180.198.98";
+const int serverPort = 8080;
+const String apiPath = "/Group-4-Project-SpeedTrap/api/speedcheck";
 
-// Khai báo chân (Giữ nguyên như phần cứng em đã làm)
-const int startSensorPin = 14; 
-const int endSensorPin = 12;   
-const int greenLedPin = 16;    
-const int redLedPin = 15;      
-const int buzzerPin = 13;      
+const int startSensorPin = 14;
+const int endSensorPin = 12;
+const int greenLedPin = 16;
+const int redLedPin = 15;
+const int buzzerPin = 13;
 
 unsigned long startTime = 0;
 unsigned long endTime = 0;
-float distance = 0.2;     
-float speedLimit = 5.0;   
+float distance = 0.2;
 
 void setup() {
   Serial.begin(115200);
@@ -35,27 +32,27 @@ void setup() {
   pinMode(redLedPin, OUTPUT);
   pinMode(buzzerPin, OUTPUT);
 
+  // Tắt toàn bộ đèn còi lúc khởi động
   digitalWrite(greenLedPin, LOW);
   digitalWrite(redLedPin, LOW);
   noTone(buzzerPin);
 
   lcd.init();
   lcd.backlight();
-  
+
   // --- 2. KẾT NỐI WIFI ---
   lcd.setCursor(0, 0);
   lcd.print("Connecting WiFi");
   Serial.print("Connecting to ");
   Serial.println(ssid);
-  
+
   WiFi.begin(ssid, password);
-  
-  // Chờ cho đến khi kết nối thành công
+
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
-  
+
   Serial.println("\nWiFi connected!");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
@@ -63,78 +60,89 @@ void setup() {
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("WiFi Connected!");
-  delay(2000); 
-  
+  delay(2000);
+
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("Waiting...      ");
 }
 
 void loop() {
-  while (digitalRead(startSensorPin) == HIGH) { 
+  while (digitalRead(startSensorPin) == HIGH) {
   }
-  startTime = millis(); 
+  startTime = millis();
 
-  while (digitalRead(endSensorPin) == HIGH) { 
+  while (digitalRead(endSensorPin) == HIGH) {
   }
-  endTime = millis(); 
-  
-  float duration = (endTime - startTime) / 1000.0; 
-  if (duration <= 0.0) duration = 0.01; 
-  
-  float speed = (distance / duration) * 3.6; 
-  
+  endTime = millis();
+
+  float duration = (endTime - startTime) / 1000.0;
+  if (duration <= 0.0) duration = 0.01;
+
+  float speed = (distance / duration) * 3.6;
+
+  // Hiển thị tốc độ đo được, chờ Server quyết định
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("Spd: ");
-  lcd.print(speed, 1); 
+  lcd.print(speed, 1);
   lcd.print(" km/h");
   lcd.setCursor(0, 1);
-  
-  if (speed <= speedLimit) {
-    lcd.print("Normal Speed");
-    digitalWrite(greenLedPin, HIGH); 
-    digitalWrite(redLedPin, LOW);    
-  } else {
-    lcd.print("OVERSPEED!  ");
-    digitalWrite(greenLedPin, LOW);  
-    digitalWrite(redLedPin, HIGH);   
-    tone(buzzerPin, 1000); 
-  }
-    
-    // --- 3. BẮN DỮ LIỆU QUA WIFI (HTTP GET) ---
-    // --- 3. BẮN DỮ LIỆU QUA WIFI CHO ESP8266 ---
-    if(WiFi.status() == WL_CONNECTED) {
-      WiFiClient client;  // <--- Khác ESP32 ở điểm phải tạo thêm biến này
-      HTTPClient http;
-      
-      String serverPath = "http://" + String(serverIP) + ":" + String(serverPort) + apiPath + "?station=STATION_CE201665&speed=" + String(speed);
-      Serial.println("Goi API: " + serverPath);
-      
-      // Mở kết nối, nhớ phải có biến client nhét vào hàm begin
-      http.begin(client, serverPath); 
-      
-      int httpResponseCode = http.GET(); 
-      if (httpResponseCode > 0) {
-        Serial.print("HTTP Response code: ");
-        Serial.println(httpResponseCode);
-        String payload = http.getString();
-        Serial.println("Server tra loi: " + payload); 
-      } else {
-        Serial.print("Loi goi API. Ma loi: ");
-        Serial.println(httpResponseCode);
+  lcd.print("Checking DB...");
+
+  // --- 3. BẮN DỮ LIỆU QUA WIFI (HTTP POST) ---
+  if(WiFi.status() == WL_CONNECTED) {
+    WiFiClient client;
+    HTTPClient http;
+
+    String serverPath = "http://" + String(serverIP) + ":" + String(serverPort) + apiPath;
+
+    http.begin(client, serverPath);
+    http.addHeader("Content-Type", "text/plain");
+
+    // Gửi ID đường = 1 và tốc độ
+    String payload = "1|" + String(speed);
+    Serial.println("Goi API POST: " + serverPath + " | Data: " + payload);
+
+    int httpResponseCode = http.POST(payload);
+
+    if (httpResponseCode > 0) {
+      String responseText = http.getString();
+      Serial.println("Server tra loi: " + responseText);
+
+      // CHỈ CẢNH BÁO KHI SERVER TRẢ VỀ "WARNING"
+      lcd.setCursor(0, 1);
+      if (responseText == "WARNING") {
+           lcd.print("! OVERSPEED !   ");
+           digitalWrite(greenLedPin, LOW);
+           digitalWrite(redLedPin, HIGH);
+           tone(buzzerPin, 1000);
+           delay(2000); // Kêu 2 giây
+      } else if (responseText == "SAFE") {
+           lcd.print("Normal Speed    ");
+           digitalWrite(redLedPin, LOW);
+           digitalWrite(greenLedPin, HIGH);
+           noTone(buzzerPin);
       }
-      http.end(); 
     } else {
-      Serial.println("Mat ket noi WiFi!");
+      Serial.print("Loi goi API. Ma loi: ");
+      Serial.println(httpResponseCode);
+      lcd.setCursor(0, 1);
+      lcd.print("API Error!      ");
     }
-  
-  delay(4000);
-  
+    http.end();
+  } else {
+    Serial.println("Mat ket noi WiFi!");
+  }
+
+  // Thời gian chờ để xe đi qua hẳn (tránh đo lặp)
+  delay(3000);
+
+  // Reset trạng thái về ban đầu
   digitalWrite(greenLedPin, LOW);
   digitalWrite(redLedPin, LOW);
   noTone(buzzerPin);
-  
+
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("Waiting...      ");
