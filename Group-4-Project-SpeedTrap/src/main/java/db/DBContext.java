@@ -27,7 +27,7 @@ public class DBContext {
         }
     }
 
-    private Connection getConnection() {
+    public Connection getConnection() {
         return conn;
     }
 }

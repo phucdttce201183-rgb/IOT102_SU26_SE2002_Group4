@@ -47,7 +47,11 @@ public class SpeedCheckApiServlet extends HttpServlet {
                 if (recordedSpeed > speedLimit) {
                     // Vi phạm! Ghi vào cơ sở dữ liệu để phục vụ Analytics
                     WarningLogDAO logDao = new WarningLogDAO();
+<<<<<<< HEAD
                     logDao.insertWarningLog(streetId, recordedSpeed);
+=======
+                    logDao.insertLog(streetId, recordedSpeed);
+>>>>>>> 851a31d2b40f0bc01173700058a51a408c388102
 
                     // Phản hồi khẩn cấp cho mạch ESP bật màn hình
                     out.print("WARNING");
